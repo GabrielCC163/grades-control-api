@@ -24,13 +24,15 @@ const insertDefault = async (req, res) => {
 };
 
 const create = async (req, res) => {
-	const { name, subject, type, value } = req.body;
+	let { name, subject, type, value } = req.body;
 
 	if (!name || !subject || !type) {
 		return res.status(400).send({ error: 'Obrigatório parâmetros "name", "subject" e "type".' });
 	}
 
-	if (typeof value !== 'number' || value < 0) {
+	value = parseFloat(value);
+
+	if (value < 0) {
 		return res.status(400).send({ error: 'Parâmetro "value" inválido.' });
 	}
 
@@ -53,17 +55,22 @@ const create = async (req, res) => {
 };
 
 const findAll = async (req, res) => {
-	const name = req.query.name;
+	const nome = req.query.name;
 
-	if (name && typeof name !== 'string') {
+	if (nome && typeof nome !== 'string') {
 		return res.status(400).send({ error: 'Parâmetro "name" precisa ser do tipo "string".' });
 	}
 
 	//condicao para o filtro no findAll
-	var condition = name ? { name: { $regex: new RegExp(name), $options: 'i' } } : {};
+	var condition = nome ? { name: { $regex: new RegExp(nome), $options: 'i' } } : {};
 
 	try {
-		const grades = await gradeModel.find(condition);
+		let grades = await gradeModel.find(condition);
+
+		for (let i in grades) {
+			const { _id, name, subject, type, value } = grades[i];
+			grades[i] = { id: _id, name, subject, type, value };
+		}
 
 		logger.info(`GET /grade`);
 		return res.send(grades);
@@ -81,12 +88,16 @@ const findOne = async (req, res) => {
 	}
 
 	try {
-		const grade = await gradeModel.findOne({ _id: id });
+		let grade = await gradeModel.findOne({ _id: id });
 
 		if (!grade) {
 			return res.status(400).send({ message: 'Grade não encontrada.' });
 		}
 
+		const { name, subject, type, value } = grade;
+		grade = { id: grade._id, name, type, subject, value };
+
+		console.log(grade);
 		logger.info(`GET /grade - ${id}`);
 		return res.status(200).send(grade);
 	} catch (error) {
@@ -115,7 +126,7 @@ const update = async (req, res) => {
 				_id: id
 			},
 			{
-				obj
+				$set: obj
 			},
 			{ useFindAndModify: false }
 		);
